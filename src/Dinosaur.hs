@@ -31,7 +31,7 @@ data Game = Game
   , _scoreMod       :: Int            -- ^ controls how often we update the score
   , _score          :: Score          -- ^ score
   , _highscore      :: Score          -- ^ highscore of current sesh
-  , _duckCountdown  :: Int            -- ^ countdown for standing up after ducking
+  , _crouchCount  :: Int              -- ^ countdown for standing up after ducking
   } deriving (Show)
 
 type Coord = V2 Int             -- (x,y)
@@ -56,6 +56,17 @@ data Direction = Up  | Down | Crouch | Still -- what direction dinosaur is going
 data ObsType = Cactus | Bird   -- Type of the obstacle, either on the floor to jump over or flying to duck under
     deriving (Eq, Show)
 
+type WidthMod = Int
+type HeightMod = Int
+type DistMod = [Int]
+data DiffMod = DiffMod
+    {
+        _widthmod :: WidthMod,
+        _heightmod :: HeightMod,
+        _distmod :: DistMod
+    } deriving (Eqm Show)
+
+
 makeLenses ''Game
 
 -- Set game constants
@@ -70,42 +81,161 @@ crouchedDinosaur = [V2 10 0]
 standingDinosaur :: Dinosaur
 standingDinosaur = [V2 10 0, V2 10 1]
 
+maxDinosaurHeight :: Int
+maxDinosaurHeight = 5
+
 obsMinSize, obsMaxSize :: Int
 obsMinSize = 1
 obsMaxSize = 4
 
+constScoreMod :: Int
+constScoreMod = 4
+
+
 -- How many frames the crouching lasts
 crouchTime :: Int
-crouchTime = 10
+crouchTime = 8
 
 -- Gameplay function defintions
 
--- Move coins and obstacles to the left every tick 
--- moveEntities :: TODO what is type of coin or obstacle?? 
-moveEntities = fmap (+ V2 (-1) 0)
+step :: Game -> Game
+step g = fromMaybe g $ do
+  guard $ not (g^.dead || g^.paused)
+  return $ fromMaybe (gameStep g) (die g)
 
--- Remove coins and obstacles after they go off screen 
--- TODO add part for coins or make seperate methods for coin and obstacles
-moveEntities :: Game -> Game
-removeEntities g = 
-    case view1 $ g^.obstacles of 
-        EmptyL -> g
-        a :< as -> let x = getEntityRight a in
-            (if x <= 0 then g & barriers .~ as else g)
+-- | What to do if we are not dead.
+gameStep :: Game -> Game
+gameStep = setHighScore . incScore . move . generateObstacle .
+          removeObstacles . isStanding . adjustCrouchCount
 
+-- EASY TO CHANGE THESE CROUCH COUNTDOWN FUNCTIONALITY??
+adjustCrouchCount :: Game -> Game
+adjustCrouchCount = setDirFromCrouchCount . decreaseCrouchCount
+
+setDirFromCrouchCount  :: Game -> Game
+setDirFromCrouchCount g = if (g^.crouchCount <= 0) && (g^.dir == Crouch) then g & dir .~ Still else g
+
+decreaseCrouchCount :: Game -> Game
+decreaseCrouchCount g = if g^.crouchCount > 0 then g & crouchCount %~ subtract 1 else g
+
+
+-- Increment score based on the score modifier game constant value
+incScore :: Game -> Game
+incScore g = case g^.scoreMod of
+  0 -> g & score %~ (+1) & scoreMod %~ incAndMod
+  _ -> g & scoreMod %~ incAndMod
+  where incAndMod x = (x + 1) `mod` constScoreMod
+
+setHighScore :: Game -> Game
+setHighScore g = if g^.score > g^.highscore
+                   then g & highscore .~ (g^.score)
+                   else g
+
+
+die :: Game -> Maybe Game
+die g = do
+  guard $ dies g
+  return $ g & dead .~ True
+
+-- Check ALL obstacle collisions
+dies :: Game -> Bool
+dies g = let nextDino = nextDinosaur g
+             nextObs = nextObsPoses g
+          in getAny $ foldMap (Any . flip inObstacles nextObs) nextDino
+
+-- get the next dinosaur position after movement
+nextDinosaur :: Game -> Dinosaur
+nextDinosaur g = moveDinosaur g^.dinosaur
+
+-- get the next obstacle positions after moving
+nextObsPoses :: Game -> S.Seq Obstacle
+nextObsPoses g = moveObstacles g^.obstacles
+
+isStanding :: Game -> Game
+isStanding g = let d = g^.dir in
+  case d of
+    Crouch -> if isDinosaurOnGround g then g & dinosaur .~ crouchedDinosaur else g
+    _    -> if isDinosaurOnGround g then g & dinosaur .~ standingDinosaur else g
+
+setDir :: Direction -> Game -> Game
+setDir d g = g & dir .~ d
+
+-- Should the dinosaur stop moving in given direction
+shouldDinosaurStop :: Direction -> Game -> Bool
+shouldDinosaurStop d g = case d of
+  Down -> isDinosaurOnGround g
+  Crouch -> isDinosaurOnGround g
+  Up   -> getDinosaurY g >= maxDinosaurHeight
+  _    -> False
+
+isDinosaurOnGround :: Game -> Bool
+isDinosaurOnGround g = getDinosaurY g <= 0
 
 getDinosaurY :: Game -> Int
 getDinosaurY g = 
     let dino = g^.dinosaur
-        (V2 _ y) = haed dino
+        (V2 _ y) = head dino
     in y
+
+
+move :: Game -> Game
+move = moveDinosaur . moveObstacles
+
+moveDinosaur :: Game -> Game
+moveDinosaur g = let d = g^.dir in
+  case d of
+    Up   -> if shouldDinosaurStop d g then setDir Down g else moveUpDown 1 g
+    Down -> if shouldDinosaurStop d g then setDir Still g else
+              (let gNext = moveUpDown (-1) g in
+                if isDinosaurOnGround gNext then setDir Still gNext else gNext)
+    Crouch -> if shouldDinosaurStop d g then g else moveUpDown (-1) g
+    _    -> g
+
+-- | Moves dino up or down
+moveUpDown :: Int -> Game -> Game
+moveUpDown amt g = g & dinosaur %~ fmap (+ V2 0 amt)
+
+moveObstacles :: Game -> Game
+moveObstacles g = g & obstacles %~ fmap moveObstacles
+
+-- Move coins and obstacles to the left every tick 
+moveObstacle :: Obstacle -> Obstacle -- TODO what is type of coin or obstacle??  CAn we move all at once
+moveObstacles = fmap (+ V2 (-1) 0)
+
+-- Remove coins and obstacles after they go off screen 
+-- TODO add part for coins or make seperate methods for coin and obstacles
+removeObstacles :: Game -> Game
+removeObstacles g = 
+    case view1 $ g^.obstacles of 
+        EmptyL -> g
+        a :< as -> let x = getObstacleRight a in
+            (if x <= 0 then g & obstacles .~ as else g)
+
+
+generateObstacle :: Game -> Game
+generateObstacle g =
+  let (DiffMod wm hm (d:ds)) = getDiffMod g
+      newDiffMod = DiffMod wm hm ds
+  in case viewr $ g^.obstacles of
+    EmptyR -> addObstacle g
+    _ :> a -> let x = getObstacleLeft a in
+                if (width - x) > d then setDiffMod newDiffMod (addObstacle g) else g
+
+getObstacleLeft :: Obstacle -> Int
+getObstacleLeft [] = 0
+getObstacleLeft (V2 x _:_) = x
+
+getObstacleRight :: Obstacle -> Int
+getObstacleRight [] = width
+getObstacleRight b = let (V2 x _) = last b in x
+
 
 addObstacle :: Game -> Game
 addObstacle g =
-  let (p:ps) = g^.obsTypes
-  in case p of
-    Bird    -> addBird g & obsTypes .~ ps
-    Cactus -> addCactus g & obsTypes .~ ps
+  let (t:ts) = g^.obsTypes
+  in case t of
+    Bird    -> addBird g & obsTypes .~ ts
+    Cactus -> addCactus g & obsTypes .~ ts
 
 addCactus :: Game -> Game
 addCactus g =
@@ -133,4 +263,39 @@ inObstacle :: Coord -> Obstacle -> Bool
 inObstacle coord obstacle = coord `elem` obstacle
 
 
+initGame :: Score -> IO Game
+initGame hs = do
+  sizes       <- randomRs (V2 obsMinSize obsMinSize, V2 obsMaxSize obsMaxSize) <$> newStdGen
+  randomTypes <- flip weightedList ((Bird, 1 % 4) : replicate 3 (Cactus, 1 % 4)) <$> newStdGen
+--   dMap            <- difficultyMap
+  let g = Game { _dino      = standingDinosaur
+               , _dir       = Still
+               , _barriers  = S.empty
+               , _obsSizes  = sizes
+               , _obsTpes   = randomTypes
+            --    , _level     = D0
+            --    , _diffMap   = dMap
+               , _paused    = False
+               , _dead      = False
+               , _scoreMod  = 0
+               , _score     = 0
+               , _highscore = hs
+               , _crouchCountdown = -1
+               }
+  return g
+
+
+weightedList :: RandomGen g => g -> [(a, Rational)] -> [a]
+weightedList gen weights = evalRand m gen
+    where m = sequence . repeat . fromList $ weights
+
+instance Random a => Random (V2 a) where
+  randomR (V2 x1 y1, V2 x2 y2) g =
+    let (x, g')  = randomR (x1, x2) g
+        (y, g'') = randomR (y1, y2) g'
+     in (V2 x y, g'')
+  random g =
+    let (x, g')  = random g
+        (y, g'') = random g'
+     in (V2 x y, g'')
 
