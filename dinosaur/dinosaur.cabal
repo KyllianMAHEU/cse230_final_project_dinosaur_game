@@ -36,11 +36,13 @@ library
   build-depends:
       MonadRandom
     , base >=4.7 && <5
+    , brick
     , containers
     , linear
     , microlens
     , microlens-th
     , random
+    , vty
   default-language: Haskell2010
 
 executable dinosaur-exe
@@ -53,12 +55,14 @@ executable dinosaur-exe
   build-depends:
       MonadRandom
     , base >=4.7 && <5
+    , brick
     , containers
     , dinosaur
     , linear
     , microlens
     , microlens-th
     , random
+    , vty
   default-language: Haskell2010
 
 test-suite dinosaur-test
@@ -72,10 +76,12 @@ test-suite dinosaur-test
   build-depends:
       MonadRandom
     , base >=4.7 && <5
+    , brick
     , containers
     , dinosaur
     , linear
     , microlens
     , microlens-th
     , random
+    , vty
   default-language: Haskell2010

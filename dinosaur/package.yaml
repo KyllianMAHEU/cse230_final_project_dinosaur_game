@@ -27,6 +27,8 @@ dependencies:
 - microlens
 - MonadRandom
 - linear
+- brick
+- vty
 
 ghc-options:
 - -Wall
