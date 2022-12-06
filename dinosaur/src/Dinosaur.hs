@@ -61,12 +61,12 @@ data ObsType = Cactus | Bird   -- Type of the obstacle, either on the floor to j
 type WidthMod = Int
 type HeightMod = Int
 type DistMod = [Int]
-data DiffMod = DiffMod
-    {
-        _widthmod :: WidthMod,
-        _heightmod :: HeightMod,
-        _distmod :: DistMod
-    } deriving (Eqm Show)
+--data DiffMod = DiffMod
+  --  {
+    --    _widthmod :: WidthMod,
+      --  _heightmod :: HeightMod,
+      --  _distmod :: DistMod
+    --} deriving (Eq, Show)
 
 
 makeLenses ''Game
@@ -198,17 +198,17 @@ moveUpDown :: Int -> Game -> Game
 moveUpDown amt g = g & dinosaur %~ fmap (+ V2 0 amt)
 
 moveObstacles :: Game -> Game
-moveObstacles g = g & obstacles %~ fmap moveObstacles
+moveObstacles g = g & obstacles %~ fmap moveObstacle
 
 -- Move coins and obstacles to the left every tick 
 moveObstacle :: Obstacle -> Obstacle -- TODO what is type of coin or obstacle??  CAn we move all at once
-moveObstacles = fmap (+ V2 (-1) 0)
+moveObstacle = fmap (+ V2 (-1) 0)
 
 -- Remove coins and obstacles after they go off screen 
 -- TODO add part for coins or make seperate methods for coin and obstacles
 removeObstacles :: Game -> Game
 removeObstacles g = 
-    case view1 $ g^.obstacles of 
+    case viewl $ g^.obstacles of 
         EmptyL -> g
         a :< as -> let x = getObstacleRight a in
             (if x <= 0 then g & obstacles .~ as else g)
@@ -216,12 +216,14 @@ removeObstacles g =
 
 generateObstacle :: Game -> Game
 generateObstacle g =
-  let (DiffMod wm hm (d:ds)) = getDiffMod g
-      newDiffMod = DiffMod wm hm ds
-  in case viewr $ g^.obstacles of
-    EmptyR -> addObstacle g
-    _ :> a -> let x = getObstacleLeft a in
-                if (width - x) > d then setDiffMod newDiffMod (addObstacle g) else g
+  -- let (DiffMod wm hm (d:ds)) = getDiffMod g
+     -- newDiffMod = DiffMod wm hm ds
+    case viewr $ g^.obstacles of
+      EmptyR -> addObstacle g
+      _ :> a -> let x = getObstacleLeft a in
+                -- TODO: check back with the num below
+                  if (width - x) > 20 then addObstacle g else g
+                --  if (width - x) > d then setDiffMod newDiffMod (addObstacle g) else g
 
 getObstacleLeft :: Obstacle -> Int
 getObstacleLeft [] = 0
@@ -243,7 +245,7 @@ addCactus :: Game -> Game
 addCactus g =
   let (V2 w h:rest) = g^.obsSizes
       -- (DiffMod wm hm _) = getDiffMod g 
-      newObs = createObstacle (V2 (min w wm) (min h hm)) 0
+      newObs = createObstacle (V2 (w) (h)) 0
   in g & obstacles %~ (|> newObs) & obsSizes .~ rest
 
 -- | Add random sky barrier (ypos is 1)
@@ -251,7 +253,7 @@ addBird :: Game -> Game
 addBird g =
   let (V2 w h:rest) = g^.obsSizes
       -- (DiffMod wm hm _) = getDiffMod g 
-      newObs = createObstacle (V2 (min w wm) (min h hm)) 1
+      newObs = createObstacle (V2 (w) (h)) 1
   in g & obstacles %~ (|> newObs) & obsSizes .~ rest
 
 createObstacle :: Size -> Int -> Obstacle
@@ -270,11 +272,11 @@ initGame hs = do
   sizes       <- randomRs (V2 obsMinSize obsMinSize, V2 obsMaxSize obsMaxSize) <$> newStdGen
   randomTypes <- flip weightedList ((Bird, 1 % 4) : replicate 3 (Cactus, 1 % 4)) <$> newStdGen
 --   dMap            <- difficultyMap
-  let g = Game { _dino      = standingDinosaur
+  let g = Game { _dinosaur  = standingDinosaur
                , _dir       = Still
-               , _barriers  = S.empty
+               , _obstacles = S.empty
                , _obsSizes  = sizes
-               , _obsTpes   = randomTypes
+               , _obsTypes   = randomTypes
             --    , _level     = D0
             --    , _diffMap   = dMap
                , _paused    = False
@@ -282,7 +284,7 @@ initGame hs = do
                , _scoreMod  = 0
                , _score     = 0
                , _highscore = hs
-               , _crouchCountdown = -1
+               , _crouchCount = -1
                }
   return g
 
@@ -291,13 +293,14 @@ weightedList :: RandomGen g => g -> [(a, Rational)] -> [a]
 weightedList gen weights = evalRand m gen
     where m = sequence . repeat . fromList $ weights
 
-instance Random a => Random (V2 a) where
-  randomR (V2 x1 y1, V2 x2 y2) g =
-    let (x, g')  = randomR (x1, x2) g
-        (y, g'') = randomR (y1, y2) g'
-     in (V2 x y, g'')
-  random g =
-    let (x, g')  = random g
-        (y, g'') = random g'
-     in (V2 x y, g'')
+
+-- instance Random a => Random (V2 a) where
+  -- randomR (V2 x1 y1, V2 x2 y2) g =
+    -- let (x, g')  = randomR (x1, x2) g
+       -- (y, g'') = randomR (y1, y2) g'
+     -- in (V2 x y, g'')
+--  random g =
+   -- let (x, g')  = random g
+   --     (y, g'') = random g'
+    -- in (V2 x y, g'')
 
