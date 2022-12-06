@@ -142,6 +142,9 @@ incScore g = case g^.scoreMod of
   _ -> g & scoreMod %~ incAndMod
   where incAndMod x = (x + 1) `mod` constScoreMod
 
+incScoreCoin :: Game -> Game
+incScoreCoin g = g & score %~ (+50)
+
 setHighScore :: Game -> Game
 setHighScore g = if g^.score > g^.highscore
                    then g & highscore .~ (g^.score)
