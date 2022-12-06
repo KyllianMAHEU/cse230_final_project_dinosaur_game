@@ -61,13 +61,13 @@ data ObsType = Cactus | Bird   -- Type of the obstacle, either on the floor to j
 type WidthMod = Int
 type HeightMod = Int
 type DistMod = [Int]
+
 --data DiffMod = DiffMod
   --  {
     --    _widthmod :: WidthMod,
       --  _heightmod :: HeightMod,
       --  _distmod :: DistMod
     --} deriving (Eq, Show)
-
 
 makeLenses ''Game
 
