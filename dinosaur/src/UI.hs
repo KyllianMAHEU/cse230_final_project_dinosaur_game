@@ -7,6 +7,7 @@ import Control.Concurrent (threadDelay, forkIO)
 import Data.IORef
 import System.IO.Unsafe (unsafePerformIO)
 
+import Dinosaur
 
 import Brick
 import Brick.BChan (newBChan, writeBChan)
@@ -23,7 +24,7 @@ data Tick = Tick
 type Name = ()
 
 -- What each cell block of the game environment can be
-data Cell = Dinosaur | Obstacle | Coin | Free
+data Cell = Dinosaur | Obstacle | Coin | SlowPwrUp | Free
 
 -- define app
 app :: App UI Tick Name
@@ -79,20 +80,22 @@ drawGrid g = withBorderStyle BS.unicodeBold
   $ B.borderWithLabel (str "Primitive Chrome Dinosaur Game")
   $ vBox rows
   where
-    rows = [hBox $ cellsInRow r | r <- [gridHeight - 1,gridHeight - 2..0]]
-    cellsInRow y = [drawCoord (V2 x y) | x <- [0..gridWidth - 1]]
+    rows = [hBox $ cellsInRow r | r <- [height - 1,height - 2..0]]
+    cellsInRow y = [drawCoord (V2 x y) | x <- [0..width - 1]]
     drawCoord = drawCell . cellAt
     cellAt c
       | c `elem` g^. dinosaur        = Dinosaur
       | inObstacles c (g^.obstacles) = Obstacle
       | c == g ^. coin               = Coin
+      | c == g ^. slowPwrUp          = SlowPwrUp
       | otherwise                    = Empty
 
 drawCell :: Cell -> Widget Name
-drawCell Dino    = withAttr dinosaurAttr  cw
-drawCell Barrier = withAttr obstacleAttr  cw
-drawCell Coin    = withAttr coinAttr      cw
-drawCell Empty   = withAttr emptyAttr     cw
+drawCell Dino      = withAttr dinosaurAttr  cw
+drawCell Barrier   = withAttr obstacleAttr  cw
+drawCell Coin      = withAttr coinAttr      cw
+drawCell Empty     = withAttr emptyAttr     cw
+drawCell SlowPwrUp = withAttr slowPwrUpAttr cw
 
 cw :: Widget Name
 cw = str "  "
@@ -102,14 +105,16 @@ theMap = attrMap V.defAttr
  [ (dinosaurAttr, V.white `on` V.white), 
     (obstacleAttr, V.red `on` V.red), 
     (coinAttr, V.yellow `on` V.yellow),
+    (slowPwrUpAttr, V.blue `on` V.blue),
     (gameOverAttr, fg V.red `V.withStyle` V.bold)
  ]
 
 dinosaurAttr, obstacleAttr, emptyAttr, gameOverAttr :: AttrName
-dinosaurAttr = "dinosaurAttr"
-obstacleAttr = "obstacleAttr"
-emptyAttr    = "emptyAttr"
-gameOverAttr = "gameOver"
+dinosaurAttr  = "dinosaurAttr"
+obstacleAttr  = "obstacleAttr"
+emptyAttr     = "emptyAttr"
+gameOverAttr  = "gameOver"
+slowPwrUpAttr = "slowDownAttr"
 
 main :: IO ()
 main = do
