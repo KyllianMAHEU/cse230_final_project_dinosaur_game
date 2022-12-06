@@ -94,13 +94,37 @@ removeEntities g =
             (if x <= 0 then g & barriers .~ as else g)
 
 
-
 getDinosaurY :: Game -> Int
 getDinosaurY g = 
     let dino = g^.dinosaur
         (V2 _ y) = haed dino
     in y
 
+addObstacle :: Game -> Game
+addObstacle g =
+  let (p:ps) = g^.obsTypes
+  in case p of
+    Bird    -> addBird g & obsTypes .~ ps
+    Cactus -> addCactus g & obsTypes .~ ps
+
+addCactus :: Game -> Game
+addCactus g =
+  let (V2 w h:rest) = g^.obsSizes
+      (DiffMod wm hm _) = getDiffMod g 
+      newObs = createObstacle (V2 (min w wm) (min h hm)) 0
+  in g & obstacles %~ (|> newObs) & obsSizes .~ rest
+
+-- | Add random sky barrier (ypos is 1)
+addBird :: Game -> Game
+addBird g =
+  let (V2 w h:rest) = g^.obsSizes
+      (DiffMod wm hm _) = getDiffMod g 
+      newObs = createObstacle (V2 (min w wm) (min h hm)) 1
+  in g & obstacles %~ (|> newObs) & obsSizes .~ rest
+
+createObstacle :: Size -> Int -> Obstacle
+createObstacle (V2 w h) y =
+  [V2 (width + a) (y + b) | a <- [0..w-1], b <- [0..h-1]]
 
 inObstacles :: Coord -> S.Seq Obstacle -> Bool
 inObstacles coord obs = getAny $ foldMap (Any . inObstacle coord) obs
