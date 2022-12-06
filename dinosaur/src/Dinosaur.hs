@@ -110,7 +110,7 @@ addObstacle g =
 addCactus :: Game -> Game
 addCactus g =
   let (V2 w h:rest) = g^.obsSizes
-      (DiffMod wm hm _) = getDiffMod g 
+      -- (DiffMod wm hm _) = getDiffMod g 
       newObs = createObstacle (V2 (min w wm) (min h hm)) 0
   in g & obstacles %~ (|> newObs) & obsSizes .~ rest
 
@@ -118,7 +118,7 @@ addCactus g =
 addBird :: Game -> Game
 addBird g =
   let (V2 w h:rest) = g^.obsSizes
-      (DiffMod wm hm _) = getDiffMod g 
+      -- (DiffMod wm hm _) = getDiffMod g 
       newObs = createObstacle (V2 (min w wm) (min h hm)) 1
   in g & obstacles %~ (|> newObs) & obsSizes .~ rest
 
