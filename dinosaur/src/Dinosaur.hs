@@ -66,7 +66,7 @@ data DiffMod = DiffMod
         _widthmod :: WidthMod,
         _heightmod :: HeightMod,
         _distmod :: DistMod
-    } deriving (Eqm Show)
+    } deriving (Eq, Show)
 
 
 makeLenses ''Game
