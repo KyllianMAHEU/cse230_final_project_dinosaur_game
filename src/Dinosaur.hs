@@ -24,6 +24,8 @@ data Game = Game
   , _obsTypes       :: [ObsType]      -- ^ random barrier positions
   , _coin           :: Coord          -- ^ location of coin
   , _coins          :: Stream Coord   -- ^ list of random coin locations
+  , _slowPwrUp      :: Coord          -- ^ location of slow-down power up
+  , _cslowPwrUps    :: Stream Coord   -- ^ list of random slowdown power up locations
 --   , _level          :: Difficulty     -- ^ game's difficulty level
 --   , _diffMap        :: DifficultyMap  -- ^ game's difficulty map
   , _dead           :: Bool           -- ^ game over flag
