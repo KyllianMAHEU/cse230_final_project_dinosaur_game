@@ -41,6 +41,9 @@ type Dinosaur = [Coord]         -- (x,y) of all points the dinosaur is in
 data Stream a = a :| Stream a
     deriving (Show)
 
+-- data Entity = Coin | Obs
+--     deriving (Show)
+
 type Score = Int                -- score is a number
 
 type Obstacle = [Coord]         -- (x,y) of all points in obstacle
@@ -56,6 +59,54 @@ data ObsType = Cactus | Bird   -- Type of the obstacle, either on the floor to j
 makeLenses ''Game
 
 -- Set game constants
+
+width, height :: Int
+width = 50
+height = 10
+
+crouchedDinosaur :: Dinosaur
+crouchedDinosaur = [V2 10 0]
+
+standingDinosaur :: Dinosaur
+standingDinosaur = [V2 10 0, V2 10 1]
+
+obsMinSize, obsMaxSize :: Int
+obsMinSize = 1
+obsMaxSize = 4
+
+-- How many frames the crouching lasts
+crouchTime :: Int
+crouchTime = 10
+
+-- Gameplay function defintions
+
+-- Move coins and obstacles to the left every tick 
+-- moveEntities :: TODO what is type of coin or obstacle?? 
+moveEntities = fmap (+ V2 (-1) 0)
+
+-- Remove coins and obstacles after they go off screen 
+-- TODO add part for coins or make seperate methods for coin and obstacles
+moveEntities :: Game -> Game
+removeEntities g = 
+    case view1 $ g^.obstacles of 
+        EmptyL -> g
+        a :< as -> let x = getEntityRight a in
+            (if x <= 0 then g & barriers .~ as else g)
+
+
+
+getDinosaurY :: Game -> Int
+getDinosaurY g = 
+    let dino = g^.dinosaur
+        (V2 _ y) = haed dino
+    in y
+
+
+inObstacles :: Coord -> S.Seq Obstacle -> Bool
+inObstacles coord obs = getAny $ foldMap (Any . inObstacle coord) obs
+
+inObstacle :: Coord -> Obstacle -> Bool
+inObstacle coord obstacle = coord `elem` obstacle
 
 
 
