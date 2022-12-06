@@ -22,8 +22,15 @@ data Game = Game
   , _obstacles      :: S.Seq Obstacle -- ^ sequence of barriers on screen
   , _obsSizes       :: [Size]         -- ^ random barrier dimensions
   , _obsTypes       :: [ObsType]      -- ^ random barrier positions
+<<<<<<< HEAD
 --   , _coins          :: S.Seq Coord   -- ^ list of random coin locations
 --   , _slowPwrUps     :: S.Seq Coord   -- ^ list of random slowdown power up locations
+=======
+  -- , _coin           :: Coord          -- ^ location of coin
+  , _coins          :: S.Seq Coord   -- ^ list of random coin locations
+  , _slowPwrUp      :: Coord          -- ^ location of slow-down power up
+  , _cslowPwrUps    :: Stream Coord   -- ^ list of random slowdown power up locations
+>>>>>>> 377bd19 (adding coin generation)
 --   , _level          :: Difficulty     -- ^ game's difficulty level
 --   , _diffMap        :: DifficultyMap  -- ^ game's difficulty map
   , _dead           :: Bool           -- ^ game over flag
@@ -121,8 +128,8 @@ changeDir d g = g & dir .~ d
 
 -- | What to do if we are not dead.
 gameStep :: Game -> Game
-gameStep = setHighScore . incScore . move . generateObstacle .
-          removeObstacles . isStanding . adjustCrouchCount
+gameStep = setHighScore . incScore . move . generateObstacle . generateCoin
+          removeObstacles . isStanding . adjustCrouchCount . collectCoin -- . powerUp
 
 -- EASY TO CHANGE THESE CROUCH COUNTDOWN FUNCTIONALITY??
 adjustCrouchCount :: Game -> Game
@@ -134,6 +141,18 @@ setDirFromCrouchCount g = if (g^.crouchCount <= 0) && (g^.dir == Crouch) then g 
 decreaseCrouchCount :: Game -> Game
 decreaseCrouchCount g = if g^.crouchCount > 0 then g & crouchCount %~ subtract 1 else g
 
+-- Check is dinosaur and coin are overlapping, if they are, then increment score to adjust
+collectCoin :: Game -> Game
+collectCoin g = if shouldCollectCoin then do
+                      incScoreCoin g
+                      nextCoin
+                  else g
+
+shouldCollectCoin :: Game -> Bool
+shouldCollectCoin = let c = g^.coins
+                        dino = g^.dinosaur
+                      in getAny $ foldMap (Any . flip inCoins c) dino
+  
 
 -- Increment score based on the score modifier game constant value
 incScore :: Game -> Game
@@ -198,7 +217,13 @@ getDinosaurY g =
 
 
 move :: Game -> Game
-move = moveDinosaur . moveObstacles
+move = moveDinosaur . moveObstacles . moveCoins
+
+moveCoinss :: Game -> Game
+moveCoins g = g & coins %~ fmap moveCoin
+
+moveCoin :: Coord -> Coord 
+moveCoin = fmap (+ V2 (-1) 0)
 
 moveDinosaur :: Game -> Game
 moveDinosaur g = let d = g^.dir in
@@ -283,6 +308,53 @@ inObstacles coord obs = getAny $ foldMap (Any . inObstacle coord) obs
 inObstacle :: Coord -> Obstacle -> Bool
 inObstacle coord obstacle = coord `elem` obstacle
 
+-- Coin creation similar to obstacles
+generateCoin :: Game -> Game
+generateCoin g =
+    case viewr $ g^.coins of
+      EmptyR -> addCoin g
+      _ :> a -> let x = getCoinX a in
+                -- TODO: check back with the num below
+                  if (width - x) > 40 then addCoin g else g
+
+getCoinX :: Coord -> Int
+getCoinX [] = 0
+getCoinX (V2 x _) = x
+
+
+addCoin :: Game -> Game
+addCoin g =
+  let (t:ts) = g^.obsTypes
+  in case t of
+    Bird    -> addCoinSky g & obsTypes .~ ts
+    Cactus -> addCoinGround g & obsTypes .~ ts
+
+addCoinGround :: Game -> Game
+addCoinGround g =
+  let -- (V2 w h:rest) = g^.obsSizes
+      -- (DiffMod wm hm _) = getDiffMod g 
+      newCoin = createCoin 0
+  in g & coins %~ (|> newCoin) & obsSizes .~ rest
+
+-- | Add random sky barrier (ypos is 1)
+addCoinSky :: Game -> Game
+addCoinSky g =
+  let -- (V2 w h:rest) = g^.obsSizes
+      -- (DiffMod wm hm _) = getDiffMod g
+
+      newCoin = createCoin 2
+  in g & coins %~ (|> newCoin) & obsSizes .~ rest
+
+createCoin :: Int -> Coin
+createObstacle y =
+  [V2 (width) (y)]
+
+inCoins :: Coord -> S.Seq Coord -> Bool
+inCoins coord coins = getAny $ foldMap (Any . inCoin coord) coins
+
+inCoin :: Coord -> Coord -> Bool
+inCoin coin dino = coin `elem` dino
+
 
 initGame :: Score -> IO Game
 initGame hs = do
@@ -293,7 +365,10 @@ initGame hs = do
                , _dir       = Still
                , _obstacles = S.empty
                , _obsSizes  = sizes
-               , _obsTypes  = randomTypes
+               , _obsTypes   = randomTypes
+               , _coins     = S.Empty
+            --    , _level     = D0
+            --    , _diffMap   = dMap
                , _paused    = False
                , _dead      = False
                , _scoreMod  = 0
