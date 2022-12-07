@@ -35,6 +35,7 @@ dependencies:
 - optparse-applicative
 - QuickCheck
 - Cabal
+- tasty
 
 ghc-options:
 - -Wall
