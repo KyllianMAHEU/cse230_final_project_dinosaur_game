@@ -380,7 +380,6 @@ generateCoin g =
     case viewr $ g^.coins of
       EmptyR -> addCoin g
       _ :> a -> let x = getCoinX a in
-                -- TODO: check back with the num below
                   if (width - x) > 40 then addCoin g else g
 
 getCoinX :: Coord -> Int
@@ -393,7 +392,6 @@ generateSlowPwrUp g =
     case viewr $ g^.slowPwrUps of
       EmptyR -> addSlowPwrUp g
       _ :> a -> let x = getSlowPwrUpX a in
-                -- TODO: check back with the num below
                   if (width - x) > 60 then addSlowPwrUp g else g
 
 getSlowPwrUpX :: Coord -> Int
