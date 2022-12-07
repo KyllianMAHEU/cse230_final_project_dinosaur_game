@@ -22,10 +22,8 @@ data Game = Game
   , _obstacles      :: S.Seq Obstacle -- ^ sequence of barriers on screen
   , _obsSizes       :: [Size]         -- ^ random barrier dimensions
   , _obsTypes       :: [ObsType]      -- ^ random barrier positions
-  , _coin           :: Coord          -- ^ location of coin
-  , _coins          :: Stream Coord   -- ^ list of random coin locations
-  , _slowPwrUp      :: Coord          -- ^ location of slow-down power up
-  , _cslowPwrUps    :: Stream Coord   -- ^ list of random slowdown power up locations
+--   , _coins          :: S.Seq Coord   -- ^ list of random coin locations
+--   , _slowPwrUps     :: S.Seq Coord   -- ^ list of random slowdown power up locations
 --   , _level          :: Difficulty     -- ^ game's difficulty level
 --   , _diffMap        :: DifficultyMap  -- ^ game's difficulty map
   , _dead           :: Bool           -- ^ game over flag
@@ -98,12 +96,28 @@ constScoreMod = 4
 crouchTime :: Int
 crouchTime = 8
 
--- Gameplay function defintions
+-- Gameplay function Definitions 
 
+-- Dinosaur steps forward in the game
 step :: Game -> Game
 step g = fromMaybe g $ do
   guard $ not (g^.dead || g^.paused)
   return $ fromMaybe (gameStep g) (die g)
+
+-- Checks if dinosaur is still or in "duck mode", if so changes to jump
+jump :: Game -> Game
+jump g = if g^.dir == Still || g^.dir == Crouch 
+            then changeDir Up g 
+            else g
+
+crouch :: Game -> Game
+crouch g = if g^.dir == Still || g^.dir == Down
+            then changeDir Crouch g & crouchCount .~ crouchTime
+            else g
+
+-- Changes direction of the dinosaur 
+changeDir :: Direction -> Game -> Game
+changeDir d g = g & dir .~ d
 
 -- | What to do if we are not dead.
 gameStep :: Game -> Game
@@ -276,15 +290,15 @@ initGame hs = do
                , _dir       = Still
                , _obstacles = S.empty
                , _obsSizes  = sizes
-               , _obsTypes   = randomTypes
-            --    , _level     = D0
-            --    , _diffMap   = dMap
+               , _obsTypes  = randomTypes
                , _paused    = False
                , _dead      = False
                , _scoreMod  = 0
                , _score     = 0
                , _highscore = hs
-               , _crouchCount = -1
+               , _crouchCount = -1 
+    --           , _coins = S.empty
+    --           , _slowPwrUps  = S.empty
                }
   return g
 
