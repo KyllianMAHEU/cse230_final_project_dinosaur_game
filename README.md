@@ -19,7 +19,7 @@ Dinosaur Game is a classic, trendy browser game that can be played in Chrome’s
 - Implement a faster version of the game as the game progresses (e.g. obstacles will come towards the dinosaur at a faster pace). 
 - Stretch Goals 
   - Implement a powerup that reverses the game gravity (e.g. dinosaur will be at the top of the screen)
-  - More goals written below! 
+  - Implement better graphics (e.g. the player will be closer to a dinosaur, the bricks will be other more real obstacles)
 
 ## Differences: 
 During our initial project research, we found a public Github repo that contains a very basic implementation of the dinosaur game. However, we will do several changes (both functionality and features)  to not simply copy the repo. We want to add coins that are collectable by the player during the game, those coins will be used with the time to determine the score. Another change that we will implement is that in the original dinosaur game, as time goes on in the game, the dinosaur moves faster and faster, increasing the difficulty. In the public repo, this is not implemented so we want to add this feature. 
