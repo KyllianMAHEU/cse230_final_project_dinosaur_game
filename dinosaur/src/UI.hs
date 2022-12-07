@@ -25,7 +25,7 @@ data Tick = Tick
 type Name = ()
 
 -- What each cell block of the game environment can be
-data Cell = Dinosaur | Obstacle | Coin | SlowPwrUp | Free
+data Cell = Dinosaur | Obstacle | Free  --SlowPwrUp | Free
 
 -- define app
 app :: App Game Tick Name
@@ -92,16 +92,20 @@ drawGrid g = withBorderStyle BS.unicodeBold
     cellAt c
       | c `elem` g^. dinosaur        = Dinosaur
       | inObstacles c (g^.obstacles) = Obstacle
-      | c == g ^. coin               = Coin
-      | c == g ^. slowPwrUp          = SlowPwrUp
+
+            -- CHANGE THIS PLS
+
+  --    | inObstacles c (g^.coins)     =  Coin
+
+  --    | inObstacles c (g^._slowPwrUps)   = SlowPwrUp
       | otherwise                    = Free
 
 drawCell :: Cell -> Widget Name
 drawCell Dinosaur  = withAttr dinosaurAttr  cw
 drawCell Obstacle  = withAttr obstacleAttr  cw
-drawCell Coin      = withAttr coinAttr      cw
+--drawCell Coin      = withAttr coinAttr      cw
 drawCell Free     =  withAttr freeAttr     cw
-drawCell SlowPwrUp = withAttr slowPwrUpAttr cw
+--drawCell SlowPwrUp = withAttr slowPwrUpAttr cw
 
 cw :: Widget Name
 cw = str "  "
@@ -110,25 +114,25 @@ theMap :: AttrMap
 theMap = attrMap V.defAttr
  [  (dinosaurAttr, V.white `on` V.white), 
     (obstacleAttr, V.red `on` V.red), 
-    (coinAttr, V.yellow `on` V.yellow),
-    (slowPwrUpAttr, V.blue `on` V.blue),
+    --(coinAttr, V.yellow `on` V.yellow),
+    --(slowPwrUpAttr, V.blue `on` V.blue),
     (gameOverAttr, fg V.red `V.withStyle` V.bold)
  ]
 
-dinosaurAttr, obstacleAttr, freeAttr, gameOverAttr, slowPwrUpAttr, coinAttr :: AttrName
+dinosaurAttr, obstacleAttr, freeAttr, gameOverAttr :: AttrName
 dinosaurAttr  = "dinosaurAttr"
 obstacleAttr  = "obstacleAttr"
 freeAttr     = "freeAttr"
 gameOverAttr  = "gameOver"
-slowPwrUpAttr = "slowDownAttr"
-coinAttr = "coinAttr"
+--slowPwrUpAttr = "slowDownAttr"
+--coinAttr = "coinAttr"
 
 
 counter :: IORef Int
 {-# NOINLINE counter #-}
 counter = unsafePerformIO (newIORef 0)
 
-playGame :: IO ()
+playGame :: IO Game 
 playGame = do
   chan <- newBChan 10
   forkIO $ forever $ do
@@ -137,12 +141,12 @@ playGame = do
     writeBChan chan Tick
     threadDelay (max (65000 - c' * 10) 35000)
  
-  g1 <- initGame 1 
+  g <- initGame 0 
   let builder = V.mkVty V.defaultConfig
   initialVty <- builder
 
 
-  customMain (V.mkVty V.defaultConfig) (Just chan) app g1
+  customMain initialVty (V.mkVty V.defaultConfig) (Just chan) app g
 
   -- customMain initialVty builder (Just chan) app g1
 
