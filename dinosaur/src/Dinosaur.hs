@@ -25,11 +25,8 @@ data Game = Game
   , _obsSizes       :: [Size]         -- ^ random barrier dimensions
   , _obsTypes       :: [ObsType]      -- ^ random barrier positions
   , _coins          :: S.Seq Coord   -- ^ list of random coin locations
-  -- , _coinHeights    :: [Heights]
-  -- , _slowPwrUp      :: Coord          -- ^ location of slow-down power up
+
   , _slowPwrUps     :: S.Seq Coord   -- ^ list of random slowdown power up locations
---   , _level          :: Difficulty     -- ^ game's difficulty level
---   , _diffMap        :: DifficultyMap  -- ^ game's difficulty map
   , _dead           :: Bool           -- ^ game over flag
   , _paused         :: Bool           -- ^ paused flag
   , _scoreMod       :: Int            -- ^ controls how often we update the score
@@ -48,8 +45,6 @@ type Dinosaur = [Coord]         -- (x,y) of all points the dinosaur is in
 data Stream a = a :| Stream a
     deriving (Show)
 
--- data Entity = Coin | Obs
---     deriving (Show)
 
 type Score = Int                -- score is a number
 
@@ -63,19 +58,11 @@ data Direction = Up  | Down | Crouch | Still -- what direction dinosaur is going
 data ObsType = Cactus | Bird   -- Type of the obstacle, either on the floor to jump over or flying to duck under
     deriving (Eq, Show)
 
--- data Heights = Zero | One | Two | Three  -- Type of the obstacle, either on the floor to jump over or flying to duck under
---     deriving (Eq, Show)
 
 type WidthMod = Int
 type HeightMod = Int
 type DistMod = [Int]
 
---data DiffMod = DiffMod
-  --  {
-    --    _widthmod :: WidthMod,
-      --  _heightmod :: HeightMod,
-      --  _distmod :: DistMod
-    --} deriving (Eq, Show)
 
 makeLenses ''Game
 
@@ -83,13 +70,19 @@ makeLenses ''Game
 
 width, height :: Int
 width = 50
-height = 10
+height = 20
 
 crouchedDinosaur :: Dinosaur
 crouchedDinosaur = [V2 10 0]
 
+-- standingDinosaur :: Dinosaur
+-- standingDinosaur = [V2 10 0, V2 10 1]
 standingDinosaur :: Dinosaur
-standingDinosaur = [V2 10 0, V2 10 1]
+standingDinosaur = [V2 10 0,
+                    V2 12 2, 
+                    V2 11 1, 
+                    V2 10 1,
+                    V2 9 1]
 
 maxDinosaurHeight :: Int
 maxDinosaurHeight = 5
@@ -304,10 +297,7 @@ moveAll g = case g^.moveFast of
         0 -> g & move & obsMoveMod %~ incAndMod
         _ -> g & obsMoveMod %~ incAndMod
         where incAndMod x = (x + 1) `mod` constMoveModSlow
-    -- case g^.obsMoveMod of
-    --     0 -> g & move & obsMoveMod %~ incAndMod
-    --     _ -> g & obsMoveMod %~ incAndMod
-    --     where incAndMod x = (x + 1) `mod` constMoveModSlow
+
 
 -- Move coins and obstacles to the left every tick 
 moveObstacle :: Obstacle -> Obstacle -- TODO what is type of coin or obstacle??  CAn we move all at once
@@ -380,6 +370,7 @@ generateCoin g =
     case viewr $ g^.coins of
       EmptyR -> addCoin g
       _ :> a -> let x = getCoinX a in
+                -- TODO: check back with the num below
                   if (width - x) > 40 then addCoin g else g
 
 getCoinX :: Coord -> Int
@@ -392,6 +383,7 @@ generateSlowPwrUp g =
     case viewr $ g^.slowPwrUps of
       EmptyR -> addSlowPwrUp g
       _ :> a -> let x = getSlowPwrUpX a in
+                -- TODO: check back with the num below
                   if (width - x) > 60 then addSlowPwrUp g else g
 
 getSlowPwrUpX :: Coord -> Int

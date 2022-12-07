@@ -64,11 +64,19 @@ drawStats :: Game -> Widget Name
 drawStats g = hLimit 11
   $ vBox [ drawScore (g ^. score)
          , padTop (Pad 2) $ drawGameOver (g ^. dead)
+         , padTop (Pad 6) $ drawHighScore (g ^. highscore)
          ]
 
 drawScore :: Int -> Widget Name
 drawScore n = withBorderStyle BS.unicodeBold
   $ B.borderWithLabel (str " score ")
+  $ C.hCenter
+  $ padAll 1
+  $ str $ show n
+
+drawHighScore :: Int -> Widget Name
+drawHighScore n = withBorderStyle BS.unicodeBold
+  $ B.borderWithLabel (str "highscore")
   $ C.hCenter
   $ padAll 1
   $ str $ show n
@@ -107,10 +115,10 @@ cw = str "  "
 
 theMap :: AttrMap 
 theMap = attrMap V.defAttr
- [  (dinosaurAttr, V.white `on` V.white), 
+ [  (dinosaurAttr, V.green `on` V.green), 
     (obstacleAttr, V.red `on` V.red), 
     (coinAttr, V.yellow `on` V.yellow),
-    (slowPwrUpAttr, V.green `on` V.green),
+    (slowPwrUpAttr, V.blue `on` V.blue),
     (gameOverAttr, fg V.red `V.withStyle` V.bold)
  ]
 
