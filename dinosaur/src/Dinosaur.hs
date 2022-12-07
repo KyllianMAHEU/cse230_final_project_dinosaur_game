@@ -10,10 +10,12 @@ import Data.Maybe (fromMaybe)
 import Lens.Micro.TH (makeLenses)
 import Lens.Micro ((&), (.~), (%~), (^.))
 import Linear.V2 (V2(..))
-import System.Random (Random(..), randomRs, newStdGen)
+import System.Random (Random(..), randomR, randomRs, newStdGen)
 import qualified Data.Sequence as S
 import Data.Sequence(ViewR(..), ViewL(..), viewr, viewl, (|>))
 import Data.Monoid (Any(..), getAny)
+import Test.QuickCheck
+import Distribution.Compat.CharParsing (oneOf)
 
 -- Set differant game variables and types
 data Game = Game
@@ -23,8 +25,9 @@ data Game = Game
   , _obsSizes       :: [Size]         -- ^ random barrier dimensions
   , _obsTypes       :: [ObsType]      -- ^ random barrier positions
   , _coins          :: S.Seq Coord   -- ^ list of random coin locations
+  -- , _coinHeights    :: [Heights]
   -- , _slowPwrUp      :: Coord          -- ^ location of slow-down power up
-  -- , _slowPwrUps     :: S.Seq Coord   -- ^ list of random slowdown power up locations
+  , _slowPwrUps     :: S.Seq Coord   -- ^ list of random slowdown power up locations
 --   , _level          :: Difficulty     -- ^ game's difficulty level
 --   , _diffMap        :: DifficultyMap  -- ^ game's difficulty map
   , _dead           :: Bool           -- ^ game over flag
@@ -33,7 +36,9 @@ data Game = Game
   , _obsMoveMod     :: Int            -- ^ controls how often we move the obstacles
   , _score          :: Score          -- ^ score
   , _highscore      :: Score          -- ^ highscore of current sesh
-  , _crouchCount  :: Int              -- ^ countdown for standing up after ducking
+  , _crouchCount    :: Int              -- ^ countdown for standing up after ducking
+  , _moveFast       :: Int
+  , _slowTime       :: Int
   } deriving (Show)
 
 type Coord = V2 Int             -- (x,y)
@@ -57,6 +62,9 @@ data Direction = Up  | Down | Crouch | Still -- what direction dinosaur is going
 
 data ObsType = Cactus | Bird   -- Type of the obstacle, either on the floor to jump over or flying to duck under
     deriving (Eq, Show)
+
+-- data Heights = Zero | One | Two | Three  -- Type of the obstacle, either on the floor to jump over or flying to duck under
+--     deriving (Eq, Show)
 
 type WidthMod = Int
 type HeightMod = Int
@@ -93,13 +101,20 @@ obsMaxSize = 4
 constScoreMod :: Int
 constScoreMod = 4
 
-constMoveMod :: Int
-constMoveMod = 1
+constMoveModFast :: Int
+constMoveModFast = 1
+
+constMoveModSlow :: Int
+constMoveModSlow = 2
 
 
 -- How many frames the crouching lasts
-crouchTime :: Int
-crouchTime = 8
+crouchTimeFast :: Int
+crouchTimeFast = 8
+
+crouchTimeSlow :: Int
+crouchTimeSlow = 16
+
 
 -- Gameplay function Definitions 
 
@@ -111,13 +126,15 @@ step g = fromMaybe g $ do
 
 -- Checks if dinosaur is still or in "duck mode", if so changes to jump
 jump :: Game -> Game
-jump g = if g^.dir == Still || g^.dir == Crouch 
-            then changeDir Up g 
+jump g = if g^.dir == Still || g^.dir == Crouch
+            then changeDir Up g
             else g
 
 crouch :: Game -> Game
 crouch g = if g^.dir == Still || g^.dir == Down
-            then changeDir Crouch g & crouchCount .~ crouchTime
+            then
+              if g^.moveFast == 1 then changeDir Crouch g & crouchCount .~ crouchTimeFast
+              else changeDir Crouch g & crouchCount .~ crouchTimeSlow
             else g
 
 -- Changes direction of the dinosaur 
@@ -126,10 +143,10 @@ changeDir d g = g & dir .~ d
 
 -- | What to do if we are not dead.
 gameStep :: Game -> Game
-gameStep = setHighScore . incScore . move . generateObstacle . generateCoin . removeCoins
-          removeObstacles . isStanding . adjustCrouchCount . collectCoin
--- gameStep = setHighScore . incScore . move . generateObstacle . generateCoin . generateSlowPwrUp . removeCoins . removeSlowPwrUps
---           removeObstacles . isStanding . adjustCrouchCount . collectCoin . collectSlowPwrUp
+-- gameStep = setHighScore . incScore . moveAll . generateObstacle . generateCoin . removeCoins .
+--           removeObstacles . isStanding . adjustCrouchCount . collectCoin
+gameStep = setHighScore . incScore . moveAll . generateObstacle . generateCoin . generateSlowPwrUp . removeCoins . removeSlowPwrUps .
+          removeObstacles . isStanding . adjustCrouchCount . collectCoin . collectSlowPwrUp
 
 -- EASY TO CHANGE THESE CROUCH COUNTDOWN FUNCTIONALITY??
 adjustCrouchCount :: Game -> Game
@@ -151,30 +168,35 @@ canCollectCoin :: Game -> Bool
 canCollectCoin g = let c = g^.coins
                        dino = g^.dinosaur
                     in getAny $ foldMap (Any . flip inCoins c) dino
-  
+
 removeCoins :: Game -> Game
-removeCoins g = 
-    case viewl $ g^.coins of 
+removeCoins g =
+    case viewl $ g^.coins of
         EmptyL -> g
         a :< as -> let x = getCoinX a in
             (if x <= 0 || canCollectCoin g then g & coins .~ as else g)
 
--- collectSlowPwrUp :: Game -> Game
--- collectSlowPwrUp g = if canCollectSlowPwrUp g then do
---                                     g & constMoveMod %~ (+1)
---                       else g
+collectSlowPwrUp :: Game -> Game
+collectSlowPwrUp g = if canCollectSlowPwrUp g && g^.moveFast == 1 then do
+                                    g & moveFast %~ subtract 1 & slowTime %~ (+100)
+                      else do
+                          if g^.slowTime > 0 then do
+                            g & slowTime %~ subtract 1
+                          else if g^.slowTime == 0 && g^.moveFast == 0 then do
+                            g & moveFast %~ (+1)
+                          else do g
 
--- canCollectSlowPwrUp :: Game -> Bool
--- canCollectSlowPwrUp g = let c = g^.slowPwrUps
---                             dino = g^.dinosaur
---                     in getAny $ foldMap (Any . flip inSlowPwrUps c) dino
-  
--- removeSlowPwrUps :: Game -> Game
--- removeSlowPwrUps g = 
---     case viewl $ g^.slowPwrUps of 
---         EmptyL -> g
---         a :< as -> let x = getSlowPwrUpX a in
---             (if x <= 0 || canCollectSlowPwrUp g then g & slowPwrUps .~ as else g)
+canCollectSlowPwrUp :: Game -> Bool
+canCollectSlowPwrUp g = let c = g^.slowPwrUps
+                            dino = g^.dinosaur
+                    in getAny $ foldMap (Any . flip inSlowPwrUps c) dino
+
+removeSlowPwrUps :: Game -> Game
+removeSlowPwrUps g =
+    case viewl $ g^.slowPwrUps of
+        EmptyL -> g
+        a :< as -> let x = getSlowPwrUpX a in
+            (if x <= 0 || canCollectSlowPwrUp g then g & slowPwrUps .~ as else g)
 
 -- Increment score based on the score modifier game constant value
 incScore :: Game -> Game
@@ -209,7 +231,7 @@ nextDinosaur g = moveDinosaur g^.dinosaur
 
 -- get the next obstacle positions after moving
 nextObsPoses :: Game -> S.Seq Obstacle
-nextObsPoses g = moveObstacles g^.obstacles
+nextObsPoses g = moveAllObstacles g^.obstacles
 
 isStanding :: Game -> Game
 isStanding g = let d = g^.dir in
@@ -232,26 +254,26 @@ isDinosaurOnGround :: Game -> Bool
 isDinosaurOnGround g = getDinosaurY g <= 0
 
 getDinosaurY :: Game -> Int
-getDinosaurY g = 
+getDinosaurY g =
     let dino = g^.dinosaur
         (V2 _ y) = head dino
     in y
 
 
 move :: Game -> Game
-move = moveDinosaur . moveObstacles . moveCoins -- . moveSlowPwrUps
+move = moveDinosaur . moveAllObstacles . moveCoins  . moveSlowPwrUps
 
 moveCoins :: Game -> Game
 moveCoins g = g & coins %~ fmap moveCoin
 
-moveCoin :: Coord -> Coord 
-moveCoin = fmap (+ V2 (-1) 0)
+moveCoin :: Coord -> Coord
+moveCoin = (+ V2 (-1) 0)
 
--- moveSlowPwrUps :: Game -> Game
--- moveSlowPwrUps g = g & slowPwrUps %~ fmap moveSlowPwrUp
+moveSlowPwrUps :: Game -> Game
+moveSlowPwrUps g = g & slowPwrUps %~ fmap moveSlowPwrUp
 
--- moveSlowPwrUp :: Coord -> Coord 
--- moveSlowPwrUp = fmap (+ V2 (-1) 0)
+moveSlowPwrUp :: Coord -> Coord 
+moveSlowPwrUp = (+ V2 (-1) 0)
 
 moveDinosaur :: Game -> Game
 moveDinosaur g = let d = g^.dir in
@@ -270,11 +292,22 @@ moveUpDown amt g = g & dinosaur %~ fmap (+ V2 0 amt)
 moveAllObstacles :: Game -> Game
 moveAllObstacles g = g & obstacles %~ fmap moveObstacle
 
-moveObstacles :: Game -> Game
-moveObstacles g = case g^.obsMoveMod of
-  0 -> g & moveAllObstacles g & obsMoveMod %~ incAndMod
-  _ -> g & obsMoveMod %~ incAndMod
-  where incAndMod x = (x + 1) `mod` constMoveMod
+moveAll :: Game -> Game
+moveAll g = case g^.moveFast of
+    1 ->
+      case g^.obsMoveMod of
+        0 -> g & move & obsMoveMod %~ incAndMod
+        _ -> g & obsMoveMod %~ incAndMod
+        where incAndMod x = (x + 1) `mod` constMoveModFast
+    0 ->
+      case g^.obsMoveMod of
+        0 -> g & move & obsMoveMod %~ incAndMod
+        _ -> g & obsMoveMod %~ incAndMod
+        where incAndMod x = (x + 1) `mod` constMoveModSlow
+    -- case g^.obsMoveMod of
+    --     0 -> g & move & obsMoveMod %~ incAndMod
+    --     _ -> g & obsMoveMod %~ incAndMod
+    --     where incAndMod x = (x + 1) `mod` constMoveModSlow
 
 -- Move coins and obstacles to the left every tick 
 moveObstacle :: Obstacle -> Obstacle -- TODO what is type of coin or obstacle??  CAn we move all at once
@@ -282,8 +315,8 @@ moveObstacle = fmap (+ V2 (-1) 0)
 
 -- Remove obstacles after they go off screen 
 removeObstacles :: Game -> Game
-removeObstacles g = 
-    case viewl $ g^.obstacles of 
+removeObstacles g =
+    case viewl $ g^.obstacles of
         EmptyL -> g
         a :< as -> let x = getObstacleRight a in
             (if x <= 0 then g & obstacles .~ as else g)
@@ -351,67 +384,67 @@ generateCoin g =
                   if (width - x) > 40 then addCoin g else g
 
 getCoinX :: Coord -> Int
-getCoinX [] = 0
+-- getCoinX  = 0
 getCoinX (V2 x _) = x
 
 -- SlowPowerUp creation like coin
--- generateSlowPwrUp :: Game -> Game
--- generateSlowPwrUp g =
---     case viewr $ g^.slowPwrUps of
---       EmptyR -> addSlowPwrUp g
---       _ :> a -> let x = getSlowPwrUpX a in
---                 -- TODO: check back with the num below
---                   if (width - x) > 40 then addSlowPwrUp g else g
+generateSlowPwrUp :: Game -> Game
+generateSlowPwrUp g =
+    case viewr $ g^.slowPwrUps of
+      EmptyR -> addSlowPwrUp g
+      _ :> a -> let x = getSlowPwrUpX a in
+                -- TODO: check back with the num below
+                  if (width - x) > 60 then addSlowPwrUp g else g
 
-getCoinX :: Coord -> Int
-getCoinX [] = 0
-getCoinX (V2 x _) = x
+getSlowPwrUpX :: Coord -> Int
+-- getSlowPwrUpX [] = 0
+getSlowPwrUpX (V2 x _) = x
 
-
--- addCoin :: Game -> Game
--- addCoin g =
---   let (t:ts) = g^.obsTypes
---   in case t of
---     Bird    -> addCoinSky g & obsTypes .~ ts
---     Cactus -> addCoinGround g & obsTypes .~ ts
 
 addCoin :: Game -> Game
-addCoin g =
-  let -- (V2 w h:rest) = g^.obsSizes
-      -- (DiffMod wm hm _) = getDiffMod g 
-      newCoin = createCoin
-  in g & coins %~ (|> newCoin)
+addCoin g = let newCoin = createCoin
+              in g & coins %~ (|> newCoin)
 
--- -- | Add random sky barrier (ypos is 1)
--- addCoinSky :: Game -> Game
--- addCoinSky g =
---   let -- (V2 w h:rest) = g^.obsSizes
---       -- (DiffMod wm hm _) = getDiffMod g
+createCoin :: Coord
+createCoin = V2 width 3
 
---       newCoin = createCoin 2
---   in g & coins %~ (|> newCoin) & obsSizes .~ rest
+addSlowPwrUp :: Game -> Game
+addSlowPwrUp g = let newSlowPwrUp = createSlowPwrUp
+              in g & slowPwrUps %~ (|> newSlowPwrUp)
 
-createCoin :: Int -> Coin
-createCoin =
-  [V2 (width) (y) | y <- [0...4]]
+createSlowPwrUp :: Coord
+createSlowPwrUp = V2 width 2
+
+
+-- randomIndex <- randomRIO (0, 4 :: Int)
+-- let randomIndex = fst $ randomR (1,10) (mkStdGen 66) ::Int 
+-- y <- randomIndex :: Int
+-- coord <- randomR (V2 obsMinSize 0, V2 obsMaxSize 4) <$> newStdGen
+-- return V2 width ([0..4] !! randomIndex)
+-- createCoinCoord (fst coord)
+--   where
+--     createCoinCoord (V2 _ y) = V2 width y
+-- return V2 width y
 
 inCoins :: Coord -> S.Seq Coord -> Bool
-inCoins coord coins = getAny $ foldMap (Any . inCoin coord) coins
+inCoins coord coins = getAny $ foldMap (Any . inEntity coord) coins
 
-inCoin :: Coord -> Coord -> Bool
-inCoin coin dino = coin `elem` dino
+-- inCoin :: Coord -> Coord -> Bool
+-- inCoin (V2 x1 y1) (V2 x2 y2) = x1 == x2 && y1 == y2
 
--- inSlowPwrUps :: Coord -> S.Seq Coord -> Bool
--- inSlowPwrUps coord pwrUps = getAny $ foldMap (Any . inSlowPwrUp coord) pwrUps
 
--- inSlowPwrUp :: Coord -> Coord -> Bool
--- inSlowPwrUp pwrUp dino = pwrUp `elem` dino
+inSlowPwrUps :: Coord -> S.Seq Coord -> Bool
+inSlowPwrUps coord pwrUps = getAny $ foldMap (Any . inEntity coord) pwrUps
+
+inEntity :: Coord -> Coord -> Bool
+inEntity (V2 x1 y1) (V2 x2 y2) = x1 == x2 && y1 == y2
 
 
 initGame :: Score -> IO Game
 initGame hs = do
   sizes       <- randomRs (V2 obsMinSize obsMinSize, V2 obsMaxSize obsMaxSize) <$> newStdGen
   randomTypes <- flip weightedList ((Bird, 1 % 4) : replicate 3 (Cactus, 1 % 4)) <$> newStdGen
+  -- randomCoinHeights <- flip weightedList ((Zero, 1 % 4) : replicate 1 (One, 1 % 4) : replicate 1 (Two, 1 % 4) : replicate 1  (Three, 1 % 4)) <$> newStdGen
 --   dMap            <- difficultyMap
   let g = Game { _dinosaur    = standingDinosaur
                , _dir         = Still
@@ -419,7 +452,8 @@ initGame hs = do
                , _obsSizes    = sizes
                , _obsTypes    = randomTypes
                , _coins       = S.empty
-              --  , _slowPwrUps  = S.empty
+              --  , _coinHeights = randomCoinHeights
+               , _slowPwrUps  = S.empty
             --    , _level     = D0
             --    , _diffMap   = dMap
                , _paused      = False
@@ -429,6 +463,8 @@ initGame hs = do
                , _score       = 0
                , _highscore   = hs
                , _crouchCount = -1
+               , _moveFast    = 1
+               , _slowTime    = 0
                }
   return g
 

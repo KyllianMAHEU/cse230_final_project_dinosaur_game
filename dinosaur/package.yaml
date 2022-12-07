@@ -33,6 +33,8 @@ dependencies:
 - filepath
 - directory 
 - optparse-applicative
+- QuickCheck
+- Cabal
 
 ghc-options:
 - -Wall

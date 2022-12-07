@@ -25,8 +25,7 @@ data Tick = Tick
 type Name = ()
 
 -- What each cell block of the game environment can be
-data Cell = Dinosaur | Obstacle | Free  --SlowPwrUp | Free
-
+data Cell = Dinosaur | Obstacle | Free  | Coin | SlowPwrUp
 -- define app
 app :: App Game Tick Name
 app = App 
@@ -93,15 +92,15 @@ drawGrid g = withBorderStyle BS.unicodeBold
       | c `elem` g^. dinosaur          = Dinosaur
       | inObstacles c (g^.obstacles)   = Obstacle
       | inCoins c (g^.coins)           = Coin
-      -- | inSlowPwrUps c (g^.slowPwrUps) = SlowPwrUp
-      | otherwise                      = Empty
+      | inSlowPwrUps c (g^.slowPwrUps) = SlowPwrUp
+      | otherwise                      = Free
 
 drawCell :: Cell -> Widget Name
-drawCell Dino      = withAttr dinosaurAttr  cw
-drawCell Barrier   = withAttr obstacleAttr  cw
+drawCell Dinosaur      = withAttr dinosaurAttr  cw
+drawCell Obstacle   = withAttr obstacleAttr  cw
 drawCell Coin      = withAttr coinAttr      cw
-drawCell Empty     = withAttr emptyAttr     cw
--- drawCell SlowPwrUp = withAttr slowPwrUpAttr cw
+drawCell Free     = withAttr freeAttr     cw
+drawCell SlowPwrUp = withAttr slowPwrUpAttr cw
 
 cw :: Widget Name
 cw = str "  "
@@ -111,17 +110,17 @@ theMap = attrMap V.defAttr
  [  (dinosaurAttr, V.white `on` V.white), 
     (obstacleAttr, V.red `on` V.red), 
     (coinAttr, V.yellow `on` V.yellow),
-    -- (slowPwrUpAttr, V.blue `on` V.blue),
+    (slowPwrUpAttr, V.green `on` V.green),
     (gameOverAttr, fg V.red `V.withStyle` V.bold)
  ]
 
-dinosaurAttr, obstacleAttr, emptyAttr, gameOverAttr, coinAttr :: AttrName
+dinosaurAttr, obstacleAttr, freeAttr, gameOverAttr, coinAttr, slowPwrUpAttr :: AttrName
 dinosaurAttr  = "dinosaurAttr"
 obstacleAttr  = "obstacleAttr"
 freeAttr     = "freeAttr"
 gameOverAttr  = "gameOver"
 coinAttr      = "coinAttr"
--- slowPwrUpAttr = "slowDownAttr"
+slowPwrUpAttr = "slowDownAttr"
 
 
 counter :: IORef Int
