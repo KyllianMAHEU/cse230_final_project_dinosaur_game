@@ -1,5 +1,8 @@
 # cse230_final_project_dinosaur_game
 
+## Link to Final Presentation
+- https://docs.google.com/presentation/d/1gobF-JE6XssstcTF9TqKuvX76kL7BgjWLzUYNZTZfmo/edit?usp=sharing
+
 ## Group Members: 
 
 - Romain Cordier (U09501742)
