@@ -22,10 +22,8 @@ data Game = Game
   , _obstacles      :: S.Seq Obstacle -- ^ sequence of barriers on screen
   , _obsSizes       :: [Size]         -- ^ random barrier dimensions
   , _obsTypes       :: [ObsType]      -- ^ random barrier positions
-  , _coin           :: Coord          -- ^ location of coin
-  , _coins          :: Stream Coord   -- ^ list of random coin locations
-  , _slowPwrUp      :: Coord          -- ^ location of slow-down power up
-  , _cslowPwrUps    :: Stream Coord   -- ^ list of random slowdown power up locations
+--   , _coins          :: S.Seq Coord   -- ^ list of random coin locations
+--   , _slowPwrUps     :: S.Seq Coord   -- ^ list of random slowdown power up locations
 --   , _level          :: Difficulty     -- ^ game's difficulty level
 --   , _diffMap        :: DifficultyMap  -- ^ game's difficulty map
   , _dead           :: Bool           -- ^ game over flag
@@ -292,15 +290,15 @@ initGame hs = do
                , _dir       = Still
                , _obstacles = S.empty
                , _obsSizes  = sizes
-               , _obsTypes   = randomTypes
-            --    , _level     = D0
-            --    , _diffMap   = dMap
+               , _obsTypes  = randomTypes
                , _paused    = False
                , _dead      = False
                , _scoreMod  = 0
                , _score     = 0
                , _highscore = hs
-               , _crouchCount = -1
+               , _crouchCount = -1 
+    --           , _coins = S.empty
+    --           , _slowPwrUps  = S.empty
                }
   return g
 
