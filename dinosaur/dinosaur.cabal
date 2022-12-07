@@ -81,6 +81,7 @@ test-suite dinosaur-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
+      Tests
       Paths_dinosaur
   hs-source-dirs:
       test
