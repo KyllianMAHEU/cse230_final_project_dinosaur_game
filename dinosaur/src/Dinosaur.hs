@@ -98,12 +98,28 @@ constScoreMod = 4
 crouchTime :: Int
 crouchTime = 8
 
--- Gameplay function defintions
+-- Gameplay function Definitions 
 
+-- Dinosaur steps forward in the game
 step :: Game -> Game
 step g = fromMaybe g $ do
   guard $ not (g^.dead || g^.paused)
   return $ fromMaybe (gameStep g) (die g)
+
+-- Checks if dinosaur is still or in "duck mode", if so changes to jump
+jump :: Game -> Game
+jump g = if g^.dir == Still || g^.dir == Crouch 
+            then changeDir Up g 
+            else g
+
+crouch :: Game -> Game
+crouch g = if g^.dir == Still || g^.dir == Down
+            then changeDir Crouch g & crouchCount .~ crouchTime
+            else g
+
+-- Changes direction of the dinosaur 
+changeDir :: Direction -> Game -> Game
+changeDir d g = g & dir .~ d
 
 -- | What to do if we are not dead.
 gameStep :: Game -> Game
