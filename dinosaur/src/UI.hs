@@ -90,22 +90,18 @@ drawGrid g = withBorderStyle BS.unicodeBold
     cellsInRow y = [drawCoord (V2 x y) | x <- [0..width - 1]]
     drawCoord = drawCell . cellAt
     cellAt c
-      | c `elem` g^. dinosaur        = Dinosaur
-      | inObstacles c (g^.obstacles) = Obstacle
-
-            -- CHANGE THIS PLS
-
-  --    | inObstacles c (g^.coins)     =  Coin
-
-  --    | inObstacles c (g^._slowPwrUps)   = SlowPwrUp
-      | otherwise                    = Free
+      | c `elem` g^. dinosaur          = Dinosaur
+      | inObstacles c (g^.obstacles)   = Obstacle
+      | inCoins c (g^.coins)           = Coin
+      -- | inSlowPwrUps c (g^.slowPwrUps) = SlowPwrUp
+      | otherwise                      = Empty
 
 drawCell :: Cell -> Widget Name
-drawCell Dinosaur  = withAttr dinosaurAttr  cw
-drawCell Obstacle  = withAttr obstacleAttr  cw
---drawCell Coin      = withAttr coinAttr      cw
-drawCell Free     =  withAttr freeAttr     cw
---drawCell SlowPwrUp = withAttr slowPwrUpAttr cw
+drawCell Dino      = withAttr dinosaurAttr  cw
+drawCell Barrier   = withAttr obstacleAttr  cw
+drawCell Coin      = withAttr coinAttr      cw
+drawCell Empty     = withAttr emptyAttr     cw
+-- drawCell SlowPwrUp = withAttr slowPwrUpAttr cw
 
 cw :: Widget Name
 cw = str "  "
@@ -114,18 +110,18 @@ theMap :: AttrMap
 theMap = attrMap V.defAttr
  [  (dinosaurAttr, V.white `on` V.white), 
     (obstacleAttr, V.red `on` V.red), 
-    --(coinAttr, V.yellow `on` V.yellow),
-    --(slowPwrUpAttr, V.blue `on` V.blue),
+    (coinAttr, V.yellow `on` V.yellow),
+    -- (slowPwrUpAttr, V.blue `on` V.blue),
     (gameOverAttr, fg V.red `V.withStyle` V.bold)
  ]
 
-dinosaurAttr, obstacleAttr, freeAttr, gameOverAttr :: AttrName
+dinosaurAttr, obstacleAttr, emptyAttr, gameOverAttr, coinAttr :: AttrName
 dinosaurAttr  = "dinosaurAttr"
 obstacleAttr  = "obstacleAttr"
 freeAttr     = "freeAttr"
 gameOverAttr  = "gameOver"
---slowPwrUpAttr = "slowDownAttr"
---coinAttr = "coinAttr"
+coinAttr      = "coinAttr"
+-- slowPwrUpAttr = "slowDownAttr"
 
 
 counter :: IORef Int
