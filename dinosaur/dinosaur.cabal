@@ -35,12 +35,15 @@ library
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
   build-depends:
       MonadRandom
-    , base >=4.7 && <5
+    , base >=4.9 && <4.17
     , brick
     , containers
+    , directory
+    , filepath
     , linear
     , microlens
     , microlens-th
+    , optparse-applicative
     , random
     , vty
   default-language: Haskell2010
@@ -54,13 +57,16 @@ executable dinosaur-exe
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       MonadRandom
-    , base >=4.7 && <5
+    , base >=4.9 && <4.17
     , brick
     , containers
     , dinosaur
+    , directory
+    , filepath
     , linear
     , microlens
     , microlens-th
+    , optparse-applicative
     , random
     , vty
   default-language: Haskell2010
@@ -75,13 +81,16 @@ test-suite dinosaur-test
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       MonadRandom
-    , base >=4.7 && <5
+    , base >=4.9 && <4.17
     , brick
     , containers
     , dinosaur
+    , directory
+    , filepath
     , linear
     , microlens
     , microlens-th
+    , optparse-applicative
     , random
     , vty
   default-language: Haskell2010

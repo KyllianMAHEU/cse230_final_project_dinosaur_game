@@ -1,15 +1,15 @@
 {-# LANGUAGE OverloadedStrings #-}
 module UI where
 
-import Control.Monad (forever)
+import Control.Monad (forever, void)
 import Control.Monad.IO.Class (liftIO)
 import Control.Concurrent (threadDelay, forkIO)
 import Data.IORef
 import System.IO.Unsafe (unsafePerformIO)
 
 import Dinosaur
-
 import Brick
+
 import Brick.BChan (newBChan, writeBChan)
 import Brick.Widgets.Border as B
 import Brick.Widgets.Border.Style as BS
@@ -17,6 +17,7 @@ import Brick.Widgets.Center as C
 import qualified Graphics.Vty as V
 import Linear.V2 (V2(..))
 import Lens.Micro ((^.))
+import System.Random(Random(..),)
 
 -- data representation of time passage
 data Tick = Tick 
@@ -27,7 +28,7 @@ type Name = ()
 data Cell = Dinosaur | Obstacle | Coin | SlowPwrUp | Free
 
 -- define app
-app :: App UI Tick Name
+app :: App Game Tick Name
 app = App 
     {
         appDraw = drawUI,
@@ -38,6 +39,8 @@ app = App
     }
 
 -- Event handler
+
+-- CHANGED NEXT??
 handleEvent :: Game -> BrickEvent Name Tick -> EventM Name (Next Game)
 handleEvent g (AppEvent Tick)                       = continue $ step g
 -- handleEvent g (VtyEvent (V.EvKey V.KUp []))         = continue $ handleUp g
@@ -47,8 +50,11 @@ handleEvent g (VtyEvent (V.EvKey (V.KChar 's') [])) = continue $ crouch g
 -- handleEvent g (VtyEvent (V.EvKey (V.KChar 'p') [])) = continue $ pause g
 handleEvent g (VtyEvent (V.EvKey (V.KChar 'q') [])) = halt g
 handleEvent g (VtyEvent (V.EvKey V.KEsc []))        = halt g
-handleEvent g (VtyEvent (V.EvKey (V.KChar 'r') [])) =
+
+handleEvent g (VtyEvent (V.EvKey (V.KChar 'r') [])) = 
   liftIO (writeIORef counter 0 >> initGame (g^.highscore)) >>= continue
+--handleEvent g (VtyEvent (V.EvKey (V.KChar 'r') [])) =
+  --liftIO (writeIORef counter 0 >> initGame (g^.highscore)) >>= continue
 handleEvent g _ = continue g
 
 -- Draw the UI
@@ -88,13 +94,13 @@ drawGrid g = withBorderStyle BS.unicodeBold
       | inObstacles c (g^.obstacles) = Obstacle
       | c == g ^. coin               = Coin
       | c == g ^. slowPwrUp          = SlowPwrUp
-      | otherwise                    = Empty
+      | otherwise                    = Free
 
 drawCell :: Cell -> Widget Name
-drawCell Dino      = withAttr dinosaurAttr  cw
-drawCell Barrier   = withAttr obstacleAttr  cw
+drawCell Dinosaur  = withAttr dinosaurAttr  cw
+drawCell Obstacle  = withAttr obstacleAttr  cw
 drawCell Coin      = withAttr coinAttr      cw
-drawCell Empty     = withAttr emptyAttr     cw
+drawCell Free     =  withAttr freeAttr     cw
 drawCell SlowPwrUp = withAttr slowPwrUpAttr cw
 
 cw :: Widget Name
@@ -102,30 +108,56 @@ cw = str "  "
 
 theMap :: AttrMap 
 theMap = attrMap V.defAttr
- [ (dinosaurAttr, V.white `on` V.white), 
+ [  (dinosaurAttr, V.white `on` V.white), 
     (obstacleAttr, V.red `on` V.red), 
     (coinAttr, V.yellow `on` V.yellow),
     (slowPwrUpAttr, V.blue `on` V.blue),
     (gameOverAttr, fg V.red `V.withStyle` V.bold)
  ]
 
-dinosaurAttr, obstacleAttr, emptyAttr, gameOverAttr :: AttrName
+dinosaurAttr, obstacleAttr, freeAttr, gameOverAttr, slowPwrUpAttr, coinAttr :: AttrName
 dinosaurAttr  = "dinosaurAttr"
 obstacleAttr  = "obstacleAttr"
-emptyAttr     = "emptyAttr"
+freeAttr     = "freeAttr"
 gameOverAttr  = "gameOver"
 slowPwrUpAttr = "slowDownAttr"
+coinAttr = "coinAttr"
 
-main :: IO ()
-main = do
-    chan <- newBChan 10
-    forkIO $ forever $ do
-        writeBChan chan Tick
-        threadDelay 100000
-    g <- initGame
-    let builder = V.mkVty V.defaultConfig
-    initialVty <- builder
-    void $ customMain initialVty builder (Just chan) app g
+
+counter :: IORef Int
+{-# NOINLINE counter #-}
+counter = unsafePerformIO (newIORef 0)
+
+playGame :: IO ()
+playGame = do
+  chan <- newBChan 10
+  forkIO $ forever $ do
+    modifyIORef counter (+1)
+    c' <- readIORef counter
+    writeBChan chan Tick
+    threadDelay (max (65000 - c' * 10) 35000)
+ 
+  g1 <- initGame 1 
+  let builder = V.mkVty V.defaultConfig
+  initialVty <- builder
+
+
+  customMain (V.mkVty V.defaultConfig) (Just chan) app g1
+
+  -- customMain initialVty builder (Just chan) app g1
+
+
+
+--main :: IO ()-
+--main = do
+  --  chan <- newBChan 10
+    --forkIO $ forever $ do
+      --  writeBChan chan Tick
+        --threadDelay 100000
+    --g <- initGame
+    --let builder = V.mkVty V.defaultConfig
+    --initialVty <- builder
+    --customMain initialVty builder (Just chan) app g
 
 
 --     chan <- newBChan 10

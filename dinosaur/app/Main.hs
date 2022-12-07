@@ -1,10 +1,7 @@
 module Main (main) where
-
 import Lib
-module Main where
-
 import UI (playGame)
-import Dino (Game(..))
+import Dinosaur (Game(..))
 
 import Control.Monad (when)
 import Data.Monoid ((<>))
